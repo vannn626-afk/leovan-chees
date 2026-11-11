@@ -33,7 +33,7 @@ jobs:
             fi
           done
 
-      - name: Prepare .env & debug.keystore
+      - name: Prepare .env, debug.keystore & google-services.json
         run: |
           if [ ! -f .env ]; then
             cp .env.example .env
@@ -53,12 +53,55 @@ jobs:
                 -dname "CN=Android Debug,O=Android,C=US"
             fi
           fi
+          if [ ! -f app/google-services.json ]; then
+            cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "479482459824",
+              "project_id": "gen-lang-client-0963056328",
+              "storage_bucket": "gen-lang-client-0963056328.firebasestorage.app"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:479482459824:android:309748bc6fdfd9825e6d75",
+                  "android_client_info": {
+                    "package_name": "com.aistudio.leovancheesy.vqnrzp"
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "479482459824-k0fr481ummfjurcqjq5mdjjkmonofo5r.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyBIGtNdZl_TYauFgdPGZlstpqgR9s8D-SU"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": [
+                      {
+                        "client_id": "479482459824-k0fr481ummfjurcqjq5mdjjkmonofo5r.apps.googleusercontent.com",
+                        "client_type": 3
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
 
       - name: Install Gradle 9.3.1 & Build APK
         run: |
           curl -fsSL https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -o /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /tmp
-          /tmp/gradle-9.3.1/bin/gradle :app:assembleDebug --no-daemon --stacktrace
+          /tmp/gradle-9.3.1/bin/gradle :app:assembleDebug --no-daemon
           cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/LEOVAN-CHEESY.apk
           ls -lh app/build/outputs/apk/debug/LEOVAN-CHEESY.apk
 

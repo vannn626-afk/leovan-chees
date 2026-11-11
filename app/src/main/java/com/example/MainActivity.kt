@@ -89,9 +89,12 @@ fun AppRootWithAuthGate() {
                         val app = checkNotNull(this[APPLICATION_KEY]) {
                             "APPLICATION_KEY missing from CreationExtras"
                         }
-                        val databaseId = app.getString(R.string.firestore_database_id)
-                        val db = FirebaseFirestore.getInstance(databaseId)
-                        LeovanChessViewModel(app, ChessCloudRepository(db))
+                        val cloudRepo = runCatching {
+                            val databaseId = app.getString(R.string.firestore_database_id)
+                            val db = FirebaseFirestore.getInstance(databaseId)
+                            ChessCloudRepository(db)
+                        }.getOrNull()
+                        LeovanChessViewModel(app, cloudRepo)
                     }
                 }
             )

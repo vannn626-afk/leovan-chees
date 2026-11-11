@@ -111,12 +111,15 @@ data class ActiveMatchUiState(
 
 class LeovanChessViewModel(
     application: Application,
-    private val cloudRepository: com.example.data.firebase.ChessCloudRepository =
-        com.example.data.firebase.ChessCloudRepository(application)
+    private val cloudRepository: com.example.data.firebase.ChessCloudRepository? =
+        runCatching { com.example.data.firebase.ChessCloudRepository(application) }.getOrNull()
 ) : AndroidViewModel(application) {
     private val repository = LeovanRepository(LeovanDatabase.getInstance(application).chessDao())
     val onlineClient = OnlineMultiplayerClient()
     private var firestoreRoomJob: Job? = null
+
+    private fun currentSignedInUid(): String? =
+        runCatching { com.google.firebase.Firebase.auth.currentUser?.uid }.getOrNull()
 
     private val _screenStack = MutableStateFlow(listOf(AppScreen.MAIN_MENU))
     val currentScreen: StateFlow<AppScreen> = MutableStateFlow(AppScreen.MAIN_MENU).also { flow ->
@@ -167,8 +170,8 @@ class LeovanChessViewModel(
         viewModelScope.launch {
             profileState.collect { profile ->
                 ChessSoundManager.updatePreferences(profile.soundEffectsEnabled, profile.musicEnabled)
-                if (com.google.firebase.Firebase.auth.currentUser != null) {
-                    cloudRepository.saveOrUpdateUserProfile(
+                if (currentSignedInUid() != null) {
+                    cloudRepository?.saveOrUpdateUserProfile(
                         playerName = profile.playerName,
                         preferredTheme = profile.selectedTheme,
                         preferredPieceColor = if (profile.defaultBoardFlipped) "BLACK" else "WHITE",
@@ -334,7 +337,7 @@ class LeovanChessViewModel(
             beginnerModeEnabled = false,
             beginnerCoachMessage = "Online Room ${room.roomCode} created. Share the room code with your opponent."
         )
-        if (com.google.firebase.Firebase.auth.currentUser != null) {
+        if (currentSignedInUid() != null && cloudRepository != null) {
             viewModelScope.launch {
                 cloudRepository.createChessRoom(room.roomCode, cleanHost)
                 subscribeToFirestoreRoom(room.roomCode)
@@ -355,7 +358,7 @@ class LeovanChessViewModel(
         val cleanCode = roomCode.trim().uppercase()
         onlineClient.joinRoomByCode(cleanCode, cleanGuest)
 
-        if (com.google.firebase.Firebase.auth.currentUser != null) {
+        if (currentSignedInUid() != null && cloudRepository != null) {
             viewModelScope.launch {
                 val cloudJoin = cloudRepository.joinRoomByCode(cleanCode, cleanGuest)
                 cloudJoin.onSuccess { cloudRoom ->
@@ -408,18 +411,18 @@ class LeovanChessViewModel(
     fun requestOnlineQuickMatch(playerName: String, timeControl: TimeControlPreset) {
         val cleanName = playerName.ifBlank { profileState.value.playerName }
         onlineClient.requestMatchmaking(cleanName, timeControl.id)
-        if (com.google.firebase.Firebase.auth.currentUser != null) {
+        val uid = currentSignedInUid()
+        if (uid != null && cloudRepository != null) {
             viewModelScope.launch {
                 val res = cloudRepository.findWaitingRoomOrCreate(cleanName)
                 res.onSuccess { room ->
-                    val uid = com.google.firebase.Firebase.auth.currentUser?.uid ?: ""
                     val myColor = if (room.hostUid == uid) PieceColor.WHITE else PieceColor.BLACK
                     _matchState.value = ActiveMatchUiState(
                         gameMode = GameMode.ONLINE_1V1,
                         boardState = FenPgnCodec.parseFen(room.fen),
                         humanColor = myColor,
                         whitePlayerName = room.hostName,
-                        blackPlayerName = room.guestName.ifBlank { "Waiting for Challenger..." },
+                        blackPlayerName = room.guestName.ifBlank { "Menunggu Lawan..." },
                         timeControl = timeControl,
                         whiteTimeRemainingMs = timeControl.initialTimeMs,
                         blackTimeRemainingMs = timeControl.initialTimeMs,
@@ -427,9 +430,9 @@ class LeovanChessViewModel(
                         onlineAuthoritativeRoomCode = room.roomCode,
                         onlinePlayerToken = "FIRESTORE_${room.roomCode}",
                         beginnerCoachMessage = if (room.status == "waiting") {
-                            "Waiting for an online challenger in Room ${room.roomCode}..."
+                            "Menunggu lawan online di Ruangan ${room.roomCode}..."
                         } else {
-                            "Matched in Room ${room.roomCode}! Game started."
+                            "Lawan ditemukan di Ruangan ${room.roomCode}! Permainan dimulai."
                         }
                     )
                     subscribeToFirestoreRoom(room.roomCode)
@@ -442,9 +445,10 @@ class LeovanChessViewModel(
     }
 
     private fun subscribeToFirestoreRoom(roomCode: String) {
+        val repo = cloudRepository ?: return
         firestoreRoomJob?.cancel()
         firestoreRoomJob = viewModelScope.launch {
-            cloudRepository.observeChessRoom(roomCode).collect { room ->
+            repo.observeChessRoom(roomCode).collect { room ->
                 if (room != null && _matchState.value.gameMode == GameMode.ONLINE_1V1) {
                     val moves = room.moveHistoryUci.split(" ").filter { it.isNotBlank() }
                     var reconstructed = ChessEngine.createInitialState()
@@ -455,7 +459,7 @@ class LeovanChessViewModel(
                     _matchState.value = _matchState.value.copy(
                         boardState = reconstructed,
                         whitePlayerName = room.hostName,
-                        blackPlayerName = room.guestName.ifBlank { "Waiting for Opponent..." },
+                        blackPlayerName = room.guestName.ifBlank { "Menunggu Lawan..." },
                         onlineAuthoritativeRoomCode = room.roomCode
                     )
                 }
@@ -636,7 +640,7 @@ class LeovanChessViewModel(
         if (current.gameMode == GameMode.ONLINE_1V1) {
             val roomCode = current.onlineAuthoritativeRoomCode
             val token = current.onlinePlayerToken
-            if (roomCode != null && com.google.firebase.Firebase.auth.currentUser != null) {
+            if (roomCode != null && currentSignedInUid() != null && cloudRepository != null) {
                 viewModelScope.launch {
                     cloudRepository.submitAuthoritativeRoomMove(roomCode, move.toUciString())
                 }
@@ -1125,7 +1129,7 @@ class LeovanChessViewModel(
                         totalPlayTimeSeconds = prof.totalPlayTimeSeconds + current.elapsedMatchSeconds
                     )
                 }
-                if (com.google.firebase.Firebase.auth.currentUser != null) {
+                if (currentSignedInUid() != null && cloudRepository != null) {
                     val humanWon = board.winner == current.humanColor
                     val isDraw = board.termination.isDraw
                     val outcome = when {
