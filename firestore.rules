@@ -1,0 +1,211 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 40 &&
+             data.preferredTheme is string && data.preferredTheme.size() >= 1 && data.preferredTheme.size() <= 30 &&
+             data.preferredPieceColor is string && data.preferredPieceColor.size() >= 1 && data.preferredPieceColor.size() <= 16 &&
+             data.totalGamesPlayed is int && data.totalGamesPlayed >= 0 &&
+             data.totalWins is int && data.totalWins >= 0 &&
+             data.totalLosses is int && data.totalLosses >= 0 &&
+             data.totalDraws is int && data.totalDraws >= 0 &&
+             data.puzzlesSolvedCount is int && data.puzzlesSolvedCount >= 0 &&
+             data.currentPuzzleStreak is int && data.currentPuzzleStreak >= 0 &&
+             data.bestPuzzleStreak is int && data.bestPuzzleStreak >= 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCloudMatchRecord(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.gameMode is string && data.gameMode.size() >= 1 && data.gameMode.size() <= 32 &&
+             data.whiteName is string && data.whiteName.size() >= 1 && data.whiteName.size() <= 40 &&
+             data.blackName is string && data.blackName.size() >= 1 && data.blackName.size() <= 40 &&
+             data.playerColor is string && data.playerColor.size() >= 1 && data.playerColor.size() <= 16 &&
+             data.resultBanner is string && data.resultBanner.size() >= 1 && data.resultBanner.size() <= 120 &&
+             data.outcomeForPlayer is string && (data.outcomeForPlayer == 'WIN' || data.outcomeForPlayer == 'LOSS' || data.outcomeForPlayer == 'DRAW') &&
+             data.pgnText is string && data.pgnText.size() <= 10000 &&
+             data.finalFen is string && data.finalFen.size() >= 1 && data.finalFen.size() <= 200 &&
+             data.totalMoves is int && data.totalMoves >= 0 && data.totalMoves <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidChessRoom(data) {
+      return data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 16 &&
+             data.hostUid is string && data.hostUid.size() >= 1 && data.hostUid.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 40 &&
+             data.guestUid is string && data.guestUid.size() <= 128 &&
+             data.guestName is string && data.guestName.size() <= 40 &&
+             data.status is string && (data.status == 'waiting' || data.status == 'active' || data.status == 'finished') &&
+             data.fen is string && data.fen.size() >= 1 && data.fen.size() <= 200 &&
+             data.turn is string && (data.turn == 'WHITE' || data.turn == 'BLACK') &&
+             data.plyCount is int && data.plyCount >= 0 && data.plyCount <= 1000 &&
+             data.lastMoveUci is string && data.lastMoveUci.size() <= 10 &&
+             data.moveHistoryUci is string && data.moveHistoryUci.size() <= 5000 &&
+             data.resultBanner is string && data.resultBanner.size() <= 120 &&
+             data.winnerUid is string && data.winnerUid.size() <= 128 &&
+             data.drawOfferBy is string && (data.drawOfferBy == '' || data.drawOfferBy == 'WHITE' || data.drawOfferBy == 'BLACK') &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 4. Collection Rules: /users/{userId}
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'playerName', 'preferredTheme', 'preferredPieceColor',
+                         'totalGamesPlayed', 'totalWins', 'totalLosses', 'totalDraws',
+                         'puzzlesSolvedCount', 'currentPuzzleStreak', 'bestPuzzleStreak',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'playerName', 'preferredTheme', 'preferredPieceColor',
+                         'totalGamesPlayed', 'totalWins', 'totalLosses', 'totalDraws',
+                         'puzzlesSolvedCount', 'currentPuzzleStreak', 'bestPuzzleStreak',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'playerName', 'preferredTheme', 'preferredPieceColor',
+                         'totalGamesPlayed', 'totalWins', 'totalLosses', 'totalDraws',
+                         'puzzlesSolvedCount', 'currentPuzzleStreak', 'bestPuzzleStreak',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      // 5. Subcollection Rules: /users/{userId}/match_history/{matchId}
+      match /match_history/{matchId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(matchId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(matchId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'gameMode', 'whiteName', 'blackName', 'playerColor',
+                           'resultBanner', 'outcomeForPlayer', 'pgnText', 'finalFen',
+                           'totalMoves', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'gameMode', 'whiteName', 'blackName', 'playerColor',
+                           'resultBanner', 'outcomeForPlayer', 'pgnText', 'finalFen',
+                           'totalMoves', 'createdAt'
+                         ]) &&
+                         isValidCloudMatchRecord(incoming());
+
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(matchId) && request.auth.uid == userId;
+      }
+    }
+
+    // 6. Collection Rules: /chess_rooms/{roomId}
+    match /chess_rooms/{roomId} {
+      allow get: if isSignedIn() &&
+                    isValidId(roomId) &&
+                    (existing().status == 'waiting' ||
+                     existing().hostUid == request.auth.uid ||
+                     existing().guestUid == request.auth.uid);
+
+      allow list: if isSignedIn() &&
+                     (existing().status == 'waiting' ||
+                      existing().hostUid == request.auth.uid ||
+                      existing().guestUid == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().hostUid == request.auth.uid &&
+                       incoming().guestUid == '' &&
+                       incoming().guestName == '' &&
+                       incoming().status == 'waiting' &&
+                       incoming().plyCount == 0 &&
+                       incoming().turn == 'WHITE' &&
+                       incoming().keys().hasAll([
+                         'roomCode', 'hostUid', 'hostName', 'guestUid', 'guestName',
+                         'status', 'fen', 'turn', 'plyCount', 'lastMoveUci',
+                         'moveHistoryUci', 'resultBanner', 'winnerUid', 'drawOfferBy',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'roomCode', 'hostUid', 'hostName', 'guestUid', 'guestName',
+                         'status', 'fen', 'turn', 'plyCount', 'lastMoveUci',
+                         'moveHistoryUci', 'resultBanner', 'winnerUid', 'drawOfferBy',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidChessRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidChessRoom(incoming()) &&
+                       existing().status != 'finished' &&
+                       incoming().roomCode == existing().roomCode &&
+                       incoming().hostUid == existing().hostUid &&
+                       incoming().hostName == existing().hostName &&
+                       incoming().createdAt == existing().createdAt && (
+                         // Action 1: Guest joins a waiting room
+                         (existing().status == 'waiting' &&
+                          existing().guestUid == '' &&
+                          incoming().guestUid == request.auth.uid &&
+                          request.auth.uid != existing().hostUid &&
+                          incoming().guestName.size() >= 1 &&
+                          incoming().status == 'active' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'guestUid', 'guestName', 'status', 'updatedAt'
+                          ])) ||
+                         // Action 2: Host or Guest updates active game state (move, draw offer, resignation, checkmate)
+                         (existing().status == 'active' &&
+                          (request.auth.uid == existing().hostUid || request.auth.uid == existing().guestUid) &&
+                          incoming().guestUid == existing().guestUid &&
+                          incoming().guestName == existing().guestName &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'status', 'fen', 'turn', 'plyCount', 'lastMoveUci',
+                            'moveHistoryUci', 'resultBanner', 'winnerUid', 'drawOfferBy', 'updatedAt'
+                          ]))
+                       );
+
+      allow delete: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       existing().hostUid == request.auth.uid &&
+                       existing().status == 'waiting';
+    }
+  }
+}

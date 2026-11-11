@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated LEOVAN CHEESY player profile and cloud-synced chess statistics.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player."
+        },
+        "playerName": {
+          "type": "string",
+          "description": "Display name of the player (1-40 chars)."
+        },
+        "preferredTheme": {
+          "type": "string",
+          "description": "Selected visual theme name."
+        },
+        "preferredPieceColor": {
+          "type": "string",
+          "description": "Selected default piece color preference."
+        },
+        "totalGamesPlayed": {
+          "type": "integer",
+          "description": "Total completed chess games."
+        },
+        "totalWins": {
+          "type": "integer",
+          "description": "Total games won."
+        },
+        "totalLosses": {
+          "type": "integer",
+          "description": "Total games lost."
+        },
+        "totalDraws": {
+          "type": "integer",
+          "description": "Total games drawn."
+        },
+        "puzzlesSolvedCount": {
+          "type": "integer",
+          "description": "Total tactical puzzles solved."
+        },
+        "currentPuzzleStreak": {
+          "type": "integer",
+          "description": "Current puzzle solving streak."
+        },
+        "bestPuzzleStreak": {
+          "type": "integer",
+          "description": "All-time best puzzle solving streak."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of profile creation (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "playerName",
+        "preferredTheme",
+        "preferredPieceColor",
+        "totalGamesPlayed",
+        "totalWins",
+        "totalLosses",
+        "totalDraws",
+        "puzzlesSolvedCount",
+        "currentPuzzleStreak",
+        "bestPuzzleStreak",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CloudMatchRecord": {
+      "title": "CloudMatchRecord",
+      "description": "Immutable completed chess match record synced to the player's cloud history.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "gameMode": {
+          "type": "string",
+          "description": "Game mode played (VS_COMPUTER, LOCAL_1V1, ONLINE_1V1, BEGINNER_MODE)."
+        },
+        "whiteName": {
+          "type": "string",
+          "description": "White player display name."
+        },
+        "blackName": {
+          "type": "string",
+          "description": "Black player display name."
+        },
+        "playerColor": {
+          "type": "string",
+          "description": "Color played by the user (WHITE or BLACK)."
+        },
+        "resultBanner": {
+          "type": "string",
+          "description": "Human-readable game result summary."
+        },
+        "outcomeForPlayer": {
+          "type": "string",
+          "enum": ["WIN", "LOSS", "DRAW"],
+          "description": "Outcome from the user's perspective."
+        },
+        "pgnText": {
+          "type": "string",
+          "description": "Full Portable Game Notation (PGN) of the match."
+        },
+        "finalFen": {
+          "type": "string",
+          "description": "Final FEN string of the board."
+        },
+        "totalMoves": {
+          "type": "integer",
+          "description": "Total full moves played."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the match was recorded (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "gameMode",
+        "whiteName",
+        "blackName",
+        "playerColor",
+        "resultBanner",
+        "outcomeForPlayer",
+        "pgnText",
+        "finalFen",
+        "totalMoves",
+        "createdAt"
+      ]
+    },
+    "ChessRoom": {
+      "title": "ChessRoom",
+      "description": "Real-time Online 1v1 Multiplayer chess room with authoritative move history.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "Short 6-character alphanumeric room code."
+        },
+        "hostUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the White/host player."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display name of the host player."
+        },
+        "guestUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the Black/guest player (empty string when waiting)."
+        },
+        "guestName": {
+          "type": "string",
+          "description": "Display name of the guest player (empty string when waiting)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "active", "finished"],
+          "description": "Lifecycle status of the room."
+        },
+        "fen": {
+          "type": "string",
+          "description": "Current FEN board state."
+        },
+        "turn": {
+          "type": "string",
+          "enum": ["WHITE", "BLACK"],
+          "description": "Active turn color."
+        },
+        "plyCount": {
+          "type": "integer",
+          "description": "Number of half-moves (plies) played."
+        },
+        "lastMoveUci": {
+          "type": "string",
+          "description": "Last move in UCI format (e.g., e2e4)."
+        },
+        "moveHistoryUci": {
+          "type": "string",
+          "description": "Space-separated sequence of all UCI moves from start for authoritative validation."
+        },
+        "resultBanner": {
+          "type": "string",
+          "description": "Terminal result banner once finished."
+        },
+        "winnerUid": {
+          "type": "string",
+          "description": "UID of the winning player, or empty string for draw/ongoing."
+        },
+        "drawOfferBy": {
+          "type": "string",
+          "enum": ["", "WHITE", "BLACK"],
+          "description": "Color currently offering a draw, or empty string."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of room creation (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last room update (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "roomCode",
+        "hostUid",
+        "hostName",
+        "guestUid",
+        "guestName",
+        "status",
+        "fen",
+        "turn",
+        "plyCount",
+        "lastMoveUci",
+        "moveHistoryUci",
+        "resultBanner",
+        "winnerUid",
+        "drawOfferBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Per-user profile and aggregated chess statistics."
+    },
+    "/users/{userId}/match_history/{matchId}": {
+      "schema": {
+        "$ref": "#/entities/CloudMatchRecord"
+      },
+      "description": "User-scoped subcollection of completed chess matches."
+    },
+    "/chess_rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/ChessRoom"
+      },
+      "description": "Real-time Online 1v1 Multiplayer chess rooms."
+    }
+  }
+}

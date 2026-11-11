@@ -1,0 +1,6 @@
+{
+  "name": "LEOVAN CHEESY",
+  "description": "Premium classic chess game by LEOVAN STUDIO featuring offline AI, local 1v1, online 1v1 multiplayer, Chess Academy, puzzles, and engine analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
